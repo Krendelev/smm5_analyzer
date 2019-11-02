@@ -1,4 +1,3 @@
-import json
 import os
 from collections import Counter
 from datetime import datetime, timedelta
@@ -7,32 +6,37 @@ from itertools import chain
 import instabot
 from dotenv import load_dotenv
 
+import utils
 
 ACCOUNT = "cocacolarus"
 DAYS = 90
 
-load_dotenv()
 
-bot = instabot.Bot()
-bot.login(username=os.environ["INSTA_LOGIN"], password=os.environ["INSTA_PASS"])
+def get_instagram_audience(user_name, days):
+    bot = instabot.Bot()
+    bot.login(username=os.environ["INSTA_LOGIN"], password=os.environ["INSTA_PASS"])
 
-owner_id = bot.get_user_id_from_username(ACCOUNT)
-owner_media = bot.get_total_user_medias(owner_id)
-comments = [bot.get_media_comments_all(id_) for id_ in owner_media]
+    user_id = int(bot.get_user_id_from_username(user_name))
+    user_media = bot.get_total_user_medias(user_id)
+    comments = [bot.get_media_comments_all(id_) for id_ in user_media]
 
-boundary = (datetime.today() - timedelta(days=DAYS)).timestamp()
-commenters_by_post = [
-    [
-        c["user_id"]
-        for c in comment
-        if c["created_at"] > boundary and c["user_id"] != int(owner_id)
+    boundary = utils.compute_boundary(days)
+    commenters_by_post = [
+        [c["user_id"] for c in comment if c["created_at"] > boundary]
+        for comment in comments
+        if comment
     ]
-    for comment in comments
-    if comment
-]
-comments_leaved = Counter(chain.from_iterable(commenters_by_post))
-posts_commented = Counter()
-for commenters in commenters_by_post:
-    posts_commented.update(set(commenters))
+    comments_leaved = Counter(chain.from_iterable(commenters_by_post))
+    comments_leaved.pop(user_id)
 
-print(comments_leaved.most_common(5), posts_commented.most_common(5), sep="\n")
+    posts_commented = Counter()
+    for commenters in commenters_by_post:
+        posts_commented.update(set(commenters))
+    posts_commented.pop(user_id)
+
+    return f"""Top commenters: {comments_leaved.most_common()}\nMost frequent: {posts_commented.most_common()}"""
+
+
+if __name__ == "__main__":
+    load_dotenv()
+    print(get_instagram_audience(ACCOUNT, DAYS))
