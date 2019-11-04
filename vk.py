@@ -1,5 +1,6 @@
 import os
 import itertools
+import time
 
 import requests
 from dotenv import load_dotenv
@@ -32,6 +33,8 @@ def fetch_records(url, payload):
         records = response.get("response", {}).get("items", None)
         if not records:
             break
+        # VK complains "Too many requests per second"
+        time.sleep(0.5)
         yield from records
 
 
@@ -61,21 +64,26 @@ def get_liker_ids(payload, post_id):
 
 
 def get_vk_audience(user_name, days):
+    load_dotenv()
     payload = {"access_token": os.environ["VK_ACCESS_TOKEN"], "v": 5.102}
     try:
-        group_id = -int(get_group_id(payload, user_name))
+        group_id = -int(get_group_id(payload, ACCOUNT))
     except requests.HTTPError as error:
         exit(error)
 
     payload.update({"owner_id": group_id})
     try:
         post_ids = get_post_ids(payload)
-        commenter_ids = (get_commenter_ids(payload, id_, days) for id_ in post_ids)
-        liker_ids = (get_liker_ids(payload, id_) for id_ in post_ids)
+        commenter_ids = {
+            id_: set(get_commenter_ids(payload, id_, DAYS)) for id_ in post_ids
+        }
+        # Select posts with comments for a certain period
+        filtered_posts = [id_ for id_ in commenter_ids if commenter_ids[id_]]
+        liker_ids = (get_liker_ids(payload, id_) for id_ in filtered_posts)
     except requests.HTTPError as error:
         exit(error)
 
-    commenters = set(itertools.chain.from_iterable(commenter_ids))
+    commenters = set(itertools.chain.from_iterable(commenter_ids.values()))
     likers = set(itertools.chain.from_iterable(liker_ids))
 
     return f"Most active: {commenters & likers}"
