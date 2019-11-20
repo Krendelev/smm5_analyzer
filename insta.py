@@ -1,6 +1,5 @@
 import os
 from collections import Counter
-from datetime import datetime, timedelta
 from itertools import chain
 
 import instabot
