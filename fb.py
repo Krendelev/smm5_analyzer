@@ -7,9 +7,6 @@ from dotenv import load_dotenv
 
 from utils import compute_boundary, timestamp_from_time
 
-USER_ID = "2495002670568797"
-DAYS = 30
-
 
 def get_group_id(payload, user_id):
     url = f"https://graph.facebook.com/v5.0/{user_id}/groups"
@@ -38,9 +35,9 @@ def get_commenter_ids(payload, publication_id, days):
     payload = {**payload, "filter": "toplevel"}
     boundary = compute_boundary(days)
     return (
-        rec["from"]["id"]
-        for rec in fetch_records(url, payload)
-        if timestamp_from_time(rec["created_time"]) > boundary
+        record["from"]["id"]
+        for record in fetch_records(url, payload)
+        if timestamp_from_time(record["created_time"]) > boundary
     )
 
 
@@ -57,21 +54,23 @@ def get_fb_audience(user_id, days):
     commenter_ids = (
         get_commenter_ids(payload, pub_id, days) for pub_id in publication_ids
     )
-    reactions = (get_reactions(payload, pub_id) for pub_id in publication_ids)
-
     commenters = set(itertools.chain.from_iterable(commenter_ids))
+
+    reactions = (get_reactions(payload, pub_id) for pub_id in publication_ids)
     reactions_count = Counter(itertools.chain.from_iterable(reactions))
 
     result = {}
-    for com in commenters:
-        result[com] = {
-            key[1]: val
-            for key, val in reactions_count.items()
-            if com == key[0] and com != user_id
+    for commenter in commenters:
+        result[commenter] = {
+            reaction[1]: count
+            for reaction, count in reactions_count.items()
+            if commenter in reaction
         }
-    return f"Most active: {result}"
+    result.pop(user_id, None)
+
+    return (result,)
 
 
 if __name__ == "__main__":
     load_dotenv()
-    print(get_fb_audience(USER_ID, DAYS))
+    print(get_fb_audience(os.environ["FB_USER_ID"], os.environ["FB_PERIOD"]))

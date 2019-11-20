@@ -1,14 +1,11 @@
-import os
 import itertools
+import os
 import time
 
 import requests
 from dotenv import load_dotenv
 
 from utils import compute_boundary
-
-ACCOUNT = "cocacola"
-DAYS = 14
 
 
 def check_vk_response(response):
@@ -48,12 +45,15 @@ def get_commenter_ids(payload, post_id, days):
     url = "https://api.vk.com/method/wall.getComments"
     payload = {**payload, "post_id": post_id}
     boundary = compute_boundary(days)
-    return (
-        record["from_id"]
+    records = (
+        record
         for record in fetch_records(url, payload)
         if not record.get("deleted", False)
-        and record["from_id"] > 0
-        and record["date"] > boundary
+    )
+    return (
+        record["from_id"]
+        for record in records
+        if record["from_id"] > 0 and record["date"] > boundary
     )
 
 
@@ -64,31 +64,24 @@ def get_liker_ids(payload, post_id):
 
 
 def get_vk_audience(user_name, days):
-    load_dotenv()
     payload = {"access_token": os.environ["VK_ACCESS_TOKEN"], "v": 5.102}
-    try:
-        group_id = -int(get_group_id(payload, ACCOUNT))
-    except requests.HTTPError as error:
-        exit(error)
-
+    group_id = -int(get_group_id(payload, user_name))
     payload.update({"owner_id": group_id})
-    try:
-        post_ids = get_post_ids(payload)
-        commenter_ids = {
-            id_: set(get_commenter_ids(payload, id_, DAYS)) for id_ in post_ids
-        }
-        # Select posts with comments for a certain period
-        filtered_posts = [id_ for id_ in commenter_ids if commenter_ids[id_]]
-        liker_ids = (get_liker_ids(payload, id_) for id_ in filtered_posts)
-    except requests.HTTPError as error:
-        exit(error)
+
+    post_ids = get_post_ids(payload)
+    commenter_ids = {
+        id_: set(get_commenter_ids(payload, id_, days)) for id_ in post_ids
+    }
+    # Select posts with comments for a certain period
+    filtered_posts = [id_ for id_ in commenter_ids if commenter_ids[id_]]
+    liker_ids = (get_liker_ids(payload, id_) for id_ in filtered_posts)
 
     commenters = set(itertools.chain.from_iterable(commenter_ids.values()))
     likers = set(itertools.chain.from_iterable(liker_ids))
 
-    return f"Most active: {commenters & likers}"
+    return (commenters & likers,)
 
 
 if __name__ == "__main__":
     load_dotenv()
-    print(get_vk_audience(ACCOUNT, DAYS))
+    print(get_vk_audience(os.environ["VK_ACCOUNT"], os.environ["VK_PERIOD"]))
