@@ -16,7 +16,8 @@ def check_vk_response(response):
 
 def get_group_id(payload, name):
     url = "https://api.vk.com/method/groups.getById"
-    response = requests.get(url, params={**payload, "group_id": name}).json()
+    params = {**payload, "group_id": name}
+    response = requests.get(url, params=params).json()
     check_vk_response(response)
     return response["response"][0]["id"]
 
