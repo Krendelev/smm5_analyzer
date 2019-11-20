@@ -62,9 +62,9 @@ def get_fb_audience(user_id, days):
     result = {}
     for commenter in commenters:
         result[commenter] = {
-            reaction[1]: count
-            for reaction, count in reactions_count.items()
-            if commenter in reaction
+            reaction: count
+            for (user_id, reaction), count in reactions_count.items()
+            if commenter == user_id
         }
     result.pop(user_id, None)
 

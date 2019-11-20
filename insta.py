@@ -16,11 +16,11 @@ def get_instagram_audience(user_name, days):
     user_media = bot.get_total_user_medias(user_id)
     comments_by_post = (bot.get_media_comments_all(id_) for id_ in user_media)
 
-    filtered_comments = filter(None, comments_by_post)
+    filtered_comments_by_post = filter(None, comments_by_post)
     boundary = compute_boundary(days)
     commenters_by_post = [
         [comment["user_id"] for comment in comments if comment["created_at"] > boundary]
-        for comments in filtered_comments
+        for comments in filtered_comments_by_post
     ]
 
     comments_leaved = Counter(chain.from_iterable(commenters_by_post))
